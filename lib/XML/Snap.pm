@@ -15,11 +15,11 @@ XML::Snap - Makes simple XML tasks a snap!
 
 =head1 VERSION
 
-Version 0.01
+Version 0.02
 
 =cut
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 
 =head1 SYNOPSIS
@@ -149,8 +149,8 @@ the C<is> method tests for equality to a given string (it's just a convenience f
 
 =cut
 
-sub name { $_[0]->{name} }
-sub is   { $_[0]->{name} eq $_[1] }
+sub name { reftype($_[0]) eq 'HASH' ? $_[0]->{name} : '' }
+sub is   { reftype($_[0]) eq 'HASH' ? $_[0]->{name} eq $_[1] : 0 }
 
 use overload ('""' => sub { $_[0]->name . '(' . ref($_[0]) . ':' . refaddr($_[0]) . ')' },
               '==' => sub { defined(refaddr($_[0])) and defined(refaddr($_[1])) and refaddr($_[0]) eq refaddr($_[1]) },
@@ -193,7 +193,7 @@ C<parent> returns the node's parent, if it has been attached to a parent, while 
 don't give a tag. C<root> is provided as a shorthand for ancestor().
 
 =cut
-sub parent {$_[0]->{parent} }
+sub parent { reftype($_[0]) eq 'HASH' ? $_[0]->{parent} : undef }
 sub root { $_[0]->ancestor }
 sub ancestor {
    my ($self, $name) = @_;
@@ -300,7 +300,7 @@ The C<attrs> method retrieves a list of the attributes set.
 
 =cut
 
-sub attrs { @{$_[0]->{attrs}} }
+sub attrs { reftype($_[0]) eq 'HASH' ? @{$_[0]->{attrs}} : () }
 
 =head2 getlist (attribute list)
 
@@ -603,8 +603,9 @@ The C<elements> method returns only those children that are elements, omitting t
 
 =cut
 
-sub children { @{$_[0]->{children}} }
-sub elements { defined $_[1] ? grep { ref $_ && reftype($_) ne 'SCALAR' && $_->can('is') && $_->is($_[1]) } @{$_[0]->{children}}
+sub children { reftype($_[0]) eq 'HASH' ? @{$_[0]->{children}} : () }
+sub elements { return () unless reftype($_[0]) eq 'HASH';
+               defined $_[1] ? grep { ref $_ && reftype($_) ne 'SCALAR' && $_->can('is') && $_->is($_[1]) } @{$_[0]->{children}}
                              : grep { ref $_ && reftype($_) ne 'SCALAR' && $_->can('parent') }              @{$_[0]->{children}}
              }
 
@@ -719,7 +720,7 @@ sub _stringchild {
 
 sub string {
    my $self = shift;
-
+   return $$self if reftype($self) eq 'SCALAR';
    my $ret = '';
 
    $ret .= "<" . $self->name;
@@ -747,6 +748,9 @@ sub _rawstringchild {
    my $child = shift;
    
    return $child unless ref $child;
+   if (reftype ($child) eq 'SCALAR') {
+      return $$child;
+   }
    if (ref $child eq 'CODE') {
       my $generator = $child->($self);
       my @genreturn = ();
@@ -763,6 +767,7 @@ sub _rawstringchild {
 }
 sub rawstring {
    my $self = shift;
+   return $$self if reftype($self) eq 'SCALAR';
 
    my $ret = '';
 
@@ -793,6 +798,7 @@ These do the same, but don't include the parent tag or its closing tag in the st
 
 sub content {
    my $self = shift;
+   return $$self if reftype($self) eq 'SCALAR';
    
    my $ret = '';
    foreach my $child ($self->children) {
@@ -802,6 +808,7 @@ sub content {
 } # Boy, that's simpler than in the xmlapi version...
 sub rawcontent {
    my $self = shift;
+   return $$self if reftype($self) eq 'SCALAR';
    
    my $ret = '';
    foreach my $child ($self->children) {
